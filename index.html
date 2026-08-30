@@ -49,6 +49,18 @@
     display:flex;align-items:center;justify-content:center;
   }
 
+  .day-timer{
+    text-align:center;
+    font-size:1.4rem;font-weight:700;
+    color:var(--accent);
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px;
+    margin-bottom:16px;
+    letter-spacing:1px;
+  }
+
   .export-btn{
     display:block;width:100%;min-height:52px;
     background:var(--bg-card-2);
@@ -56,7 +68,11 @@
     border:1px solid var(--accent-2);
     border-radius:12px;
     font-size:1.05rem;font-weight:600;
-    margin-bottom:20px;
+    margin-bottom:6px;
+  }
+  .export-hint{
+    color:var(--text-dim);font-size:.8rem;
+    text-align:center;margin:0 0 20px;
   }
 
   .day-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -124,12 +140,33 @@
     outline:2px solid var(--accent);
     border-color:var(--accent);
   }
+  .copy-btn{
+    flex:none;width:44px;min-height:44px;
+    background:var(--bg-card-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--accent);
+    font-size:1rem;font-weight:700;
+    padding:0;
+  }
+  .copy-btn:active{background:var(--accent-2);color:#fff;}
   .check{
-    width:34px;flex:none;text-align:center;
+    width:30px;flex:none;text-align:center;
     font-size:1.4rem;color:var(--accent);
     visibility:hidden;
   }
   .check.show{visibility:visible;}
+
+  .add-set-btn{
+    display:block;width:100%;min-height:44px;
+    background:none;
+    border:1px dashed var(--border);
+    border-radius:10px;
+    color:var(--text-dim);
+    font-size:1rem;font-weight:600;
+    margin-top:4px;
+  }
+  .add-set-btn:active{background:var(--bg-card-2);color:var(--text);}
 
   .finish-btn{
     display:block;width:100%;min-height:56px;
@@ -175,6 +212,7 @@
 <div id="screen-home" class="screen active">
   <header class="top"><h1>Krafttraining</h1></header>
   <button class="export-btn" id="btn-export">⭳ Exportieren (CSV)</button>
+  <p class="export-hint">Enthält immer deinen kompletten bisherigen Verlauf</p>
   <div class="day-grid">
     <button class="day-btn" data-day="upper-a">Upper A</button>
     <button class="day-btn" data-day="lower-a">Lower A</button>
@@ -189,6 +227,7 @@
     <button class="back-btn" id="btn-day-back">←</button>
     <h1 id="day-title">Tag</h1>
   </header>
+  <div class="day-timer" id="day-timer">⏱ 00:00</div>
   <div id="day-exercises"></div>
   <button class="finish-btn" id="btn-finish">Training abschließen</button>
 </div>
@@ -309,6 +348,52 @@ function getLastSetsForExercise(exerciseName){
   return hist.length ? hist[0].sets : null;
 }
 
+/* ---------- Trainings-Timer ---------- */
+let dayTimerInterval = null;
+
+function timerKeyFor(daySlug){
+  return `timer:${daySlug}`;
+}
+
+function formatElapsed(ms){
+  const totalSec = Math.max(0, Math.floor(ms/1000));
+  const h = Math.floor(totalSec/3600);
+  const m = Math.floor((totalSec%3600)/60);
+  const s = totalSec%60;
+  const pad = n => String(n).padStart(2,"0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+function startDayTimer(daySlug){
+  const key = timerKeyFor(daySlug);
+  let start = localStorage.getItem(key);
+  if (!start){
+    start = Date.now();
+    localStorage.setItem(key, String(start));
+  } else {
+    start = parseInt(start, 10);
+  }
+  const el = document.getElementById("day-timer");
+  function tick(){
+    el.textContent = "⏱ " + formatElapsed(Date.now() - start);
+  }
+  tick();
+  if (dayTimerInterval) clearInterval(dayTimerInterval);
+  dayTimerInterval = setInterval(tick, 1000);
+}
+
+function stopDayTimerDisplay(){
+  if (dayTimerInterval){
+    clearInterval(dayTimerInterval);
+    dayTimerInterval = null;
+  }
+}
+
+function clearDayTimer(daySlug){
+  localStorage.removeItem(timerKeyFor(daySlug));
+  stopDayTimerDisplay();
+}
+
 /* ---------- Navigation ---------- */
 const screens = {
   home: document.getElementById("screen-home"),
@@ -335,17 +420,88 @@ function repsLabel(ex){
   return ex.repsMin === ex.repsMax ? `${ex.repsMin}` : `${ex.repsMin}–${ex.repsMax}`;
 }
 
+function addSetRow(setsContainer, lastSets, rowIndex){
+  const row = document.createElement("div");
+  row.className = "set-row";
+
+  const label = document.createElement("span");
+  label.className = "set-label";
+  label.textContent = (rowIndex+1) + ".";
+  row.appendChild(label);
+
+  const weightInput = document.createElement("input");
+  weightInput.type = "number";
+  weightInput.inputMode = "decimal";
+  weightInput.step = "0.5";
+  weightInput.min = "0";
+  weightInput.placeholder = "kg";
+  weightInput.dataset.role = "weight";
+  if (lastSets && lastSets[rowIndex] && lastSets[rowIndex].weight !== undefined && lastSets[rowIndex].weight !== ""){
+    weightInput.value = lastSets[rowIndex].weight;
+  }
+  weightInput.addEventListener("focus", () => weightInput.select());
+  row.appendChild(weightInput);
+
+  if (rowIndex > 0){
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "copy-btn";
+    copyBtn.textContent = "=";
+    copyBtn.title = "Gewicht vom Satz darüber übernehmen";
+    copyBtn.addEventListener("click", () => {
+      let sibling = row.previousElementSibling;
+      while (sibling){
+        const prevWeight = sibling.querySelector('input[data-role="weight"]');
+        if (prevWeight && prevWeight.value.trim() !== ""){
+          weightInput.value = prevWeight.value;
+          weightInput.dispatchEvent(new Event("input"));
+          break;
+        }
+        sibling = sibling.previousElementSibling;
+      }
+    });
+    row.appendChild(copyBtn);
+  }
+
+  const repsInput = document.createElement("input");
+  repsInput.type = "number";
+  repsInput.inputMode = "numeric";
+  repsInput.pattern = "[0-9]*";
+  repsInput.min = "0";
+  repsInput.placeholder = "Wdh";
+  repsInput.dataset.role = "reps";
+  repsInput.addEventListener("focus", () => repsInput.select());
+  row.appendChild(repsInput);
+
+  const check = document.createElement("span");
+  check.className = "check";
+  check.textContent = "✓";
+  row.appendChild(check);
+
+  function updateCheck(){
+    const filled = weightInput.value.trim() !== "" && repsInput.value.trim() !== "";
+    check.classList.toggle("show", filled);
+  }
+  weightInput.addEventListener("input", updateCheck);
+  repsInput.addEventListener("input", updateCheck);
+  updateCheck();
+
+  setsContainer.appendChild(row);
+}
+
 function openDay(daySlug){
   const day = TRAINING_PLAN[daySlug];
   document.getElementById("day-title").textContent = day.name;
+  document.getElementById("screen-day").dataset.daySlug = daySlug;
   const container = document.getElementById("day-exercises");
   container.innerHTML = "";
 
-  day.exercises.forEach((ex, exIndex) => {
+  day.exercises.forEach((ex) => {
     const lastSets = getLastSetsForExercise(ex.name);
 
     const box = document.createElement("div");
     box.className = "exercise";
+    box.dataset.name = ex.name;
 
     const nameBtn = document.createElement("button");
     nameBtn.className = "exercise-name-btn";
@@ -365,57 +521,27 @@ function openDay(daySlug){
       box.appendChild(lt);
     }
 
+    const setsContainer = document.createElement("div");
+    setsContainer.className = "sets-container";
+    box.appendChild(setsContainer);
+
     for (let i=0; i<ex.sets; i++){
-      const row = document.createElement("div");
-      row.className = "set-row";
-
-      const label = document.createElement("span");
-      label.className = "set-label";
-      label.textContent = (i+1) + ".";
-      row.appendChild(label);
-
-      const weightInput = document.createElement("input");
-      weightInput.type = "number";
-      weightInput.inputMode = "decimal";
-      weightInput.step = "0.5";
-      weightInput.min = "0";
-      weightInput.placeholder = "kg";
-      weightInput.id = `w-${daySlug}-${exIndex}-${i}`;
-      if (lastSets && lastSets[i] && lastSets[i].weight !== undefined && lastSets[i].weight !== ""){
-        weightInput.value = lastSets[i].weight;
-      }
-      weightInput.addEventListener("focus", () => weightInput.select());
-      row.appendChild(weightInput);
-
-      const repsInput = document.createElement("input");
-      repsInput.type = "number";
-      repsInput.inputMode = "numeric";
-      repsInput.pattern = "[0-9]*";
-      repsInput.min = "0";
-      repsInput.placeholder = "Wdh";
-      repsInput.id = `r-${daySlug}-${exIndex}-${i}`;
-      repsInput.addEventListener("focus", () => repsInput.select());
-      row.appendChild(repsInput);
-
-      const check = document.createElement("span");
-      check.className = "check";
-      check.textContent = "✓";
-      row.appendChild(check);
-
-      function updateCheck(){
-        const filled = weightInput.value.trim() !== "" && repsInput.value.trim() !== "";
-        check.classList.toggle("show", filled);
-      }
-      weightInput.addEventListener("input", updateCheck);
-      repsInput.addEventListener("input", updateCheck);
-      updateCheck();
-
-      box.appendChild(row);
+      addSetRow(setsContainer, lastSets, i);
     }
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "add-set-btn";
+    addBtn.textContent = "+ Satz hinzufügen";
+    addBtn.addEventListener("click", () => {
+      addSetRow(setsContainer, lastSets, setsContainer.children.length);
+    });
+    box.appendChild(addBtn);
 
     container.appendChild(box);
   });
 
+  startDayTimer(daySlug);
   showScreen("day");
 }
 
@@ -423,17 +549,17 @@ function finishDay(daySlug){
   const day = TRAINING_PLAN[daySlug];
   const resultExercises = [];
 
-  day.exercises.forEach((ex, exIndex) => {
+  document.querySelectorAll("#day-exercises .exercise").forEach(box => {
     const sets = [];
-    for (let i=0; i<ex.sets; i++){
-      const w = document.getElementById(`w-${daySlug}-${exIndex}-${i}`).value.trim();
-      const r = document.getElementById(`r-${daySlug}-${exIndex}-${i}`).value.trim();
+    box.querySelectorAll(".set-row").forEach(row => {
+      const w = row.querySelector('input[data-role="weight"]').value.trim();
+      const r = row.querySelector('input[data-role="reps"]').value.trim();
       if (w !== "" && r !== ""){
         sets.push({ weight: w, reps: r });
       }
-    }
+    });
     if (sets.length){
-      resultExercises.push({ name: ex.name, sets });
+      resultExercises.push({ name: box.dataset.name, sets });
     }
   });
 
@@ -443,6 +569,7 @@ function finishDay(daySlug){
   }
 
   saveSession(daySlug, day.name, resultExercises);
+  clearDayTimer(daySlug);
   showToast("Training gespeichert ✓");
   showScreen("home");
 }
@@ -496,7 +623,64 @@ function csvEscape(value){
   return str;
 }
 
-function exportCSV(){
+/* Merkt sich (nur auf Browsern mit File System Access API, z.B. Desktop-Chrome/Edge)
+   einen Datei-Handle in IndexedDB, damit jeder Export dieselbe Datei überschreibt
+   statt eine neue Download-Datei anzulegen. Auf iPhone/Safari nicht verfügbar ->
+   dort greift automatisch der klassische Download-Fallback weiter unten. */
+const FS_DB_NAME = "gym-tracker-fs";
+const FS_STORE_NAME = "handles";
+const FS_HANDLE_KEY = "csv-export";
+
+function openHandleDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(FS_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(FS_STORE_NAME);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function getStoredFileHandle(){
+  try{
+    const db = await openHandleDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(FS_STORE_NAME, "readonly");
+      const req = tx.objectStore(FS_STORE_NAME).get(FS_HANDLE_KEY);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }catch(e){
+    return null;
+  }
+}
+
+async function storeFileHandle(handle){
+  try{
+    const db = await openHandleDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(FS_STORE_NAME, "readwrite");
+      tx.objectStore(FS_STORE_NAME).put(handle, FS_HANDLE_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }catch(e){
+    /* ignorieren, Export funktioniert trotzdem über den Fallback */
+  }
+}
+
+function downloadCSVFallback(csvContent){
+  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "trainingsdaten-export.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function exportCSV(){
   const sessions = getAllSessions();
   const rows = [["Datum","Trainingstag","Übung","Satz-Nummer","Gewicht (kg)","Wiederholungen"]];
 
@@ -514,15 +698,35 @@ function exportCSV(){
   }
 
   const csvContent = rows.map(r => r.map(csvEscape).join(",")).join("\r\n");
-  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "trainingsdaten-export.csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+  if (window.showSaveFilePicker){
+    try{
+      let handle = await getStoredFileHandle();
+      if (handle){
+        const opts = { mode: "readwrite" };
+        let perm = await handle.queryPermission(opts);
+        if (perm !== "granted") perm = await handle.requestPermission(opts);
+        if (perm !== "granted") handle = null;
+      }
+      if (!handle){
+        handle = await window.showSaveFilePicker({
+          suggestedName: "trainingsdaten-export.csv",
+          types: [{ description: "CSV-Datei", accept: { "text/csv": [".csv"] } }]
+        });
+        await storeFileHandle(handle);
+      }
+      const writable = await handle.createWritable();
+      await writable.write("﻿" + csvContent);
+      await writable.close();
+      showToast("Datei aktualisiert ✓");
+      return;
+    }catch(e){
+      if (e && e.name === "AbortError") return;
+      /* API fehlgeschlagen -> unten regulärer Download als Fallback */
+    }
+  }
+
+  downloadCSVFallback(csvContent);
 }
 
 /* ---------- Event-Listener ---------- */
@@ -531,10 +735,12 @@ document.querySelectorAll(".day-btn").forEach(btn => {
 });
 document.getElementById("btn-export").addEventListener("click", exportCSV);
 document.getElementById("btn-finish").addEventListener("click", () => {
-  const daySlug = Object.keys(TRAINING_PLAN).find(k => TRAINING_PLAN[k].name === document.getElementById("day-title").textContent);
-  finishDay(daySlug);
+  finishDay(document.getElementById("screen-day").dataset.daySlug);
 });
-document.getElementById("btn-day-back").addEventListener("click", () => showScreen("home"));
+document.getElementById("btn-day-back").addEventListener("click", () => {
+  stopDayTimerDisplay();
+  showScreen("home");
+});
 document.getElementById("btn-history-back").addEventListener("click", () => showScreen(historyReturnScreen));
 
 })();

@@ -99,8 +99,10 @@ Element", andere „Für jedes Element wiederholen".) Element-Variable z. B.
   Variable `Kostentraeger`
 
 **b) Datei sinnvoll benennen**
-- Aktion **„Datum formatieren"** → Format `JJJJ-MM-TT` → Variable
-  `Datum-formatiert`
+- Aktion **„Datum formatieren"** → Eingabe: `Datum` → im Format-Dropdown
+  **„ISO 8601"** auswählen (nicht „Benutzerdefiniert" – dort müsste man
+  sonst einen technischen Code selbst richtig eintippen) → liefert
+  automatisch `2026-08-30`-Schreibweise → Variable `Datum-formatiert`
 - Aktion **„Text"** → Inhalt: `Datum-formatiert_Arzt.pdf` (z. B.
   `2026-08-30_Dr-Müller.pdf`) → Variable `Dateiname`
 - Aktion **„Datei umbenennen"** auf `Aktuelles-PDF`, neuer Name =
@@ -187,3 +189,23 @@ Element", andere „Für jedes Element wiederholen".) Element-Variable z. B.
 - [Dateien organisieren per Kurzbefehl – mac-seminare Blog](https://mac-seminare.de/blog/2022/07/13/dateien-organisieren-per-kurzbefehl/) –
   Beleg für die Aktionen „Ordnerinhalt laden" und „Datei in Ordner
   bewegen".
+- [Custom date formats in Shortcuts – Apple Support](https://support.apple.com/guide/shortcuts/custom-date-formats-apd8d9b19184/ios) –
+  belegt, dass eigene Formatcodes kleingeschrieben nach dem
+  Unicode-Standard funktionieren (`yyyy-MM-dd`, nicht `JJJJ-MM-TT`) –
+  Grund, warum wir stattdessen den fertigen „ISO 8601"-Eintrag im
+  Dropdown nutzen, um dieses Risiko ganz zu vermeiden.
+
+## Was in dieser Anleitung wirklich geprüft ist – und was nicht
+
+- **Mehrfach durch unabhängige Quellen bestätigt:** die Einschränkung der
+  „Dokument scannen"-Aktion, die Aktionen „Ordnerinhalt laden" und
+  „Datei in Ordner bewegen", der grundsätzliche Bedienablauf (Aktion
+  suchen/hinzufügen, Variable umbenennen), das ISO-8601-Datumsformat.
+- **Nicht unabhängig verifiziert** (Apples eigene Support-Seiten waren
+  aus der Arbeitsumgebung, in der diese Anleitung erstellt wurde, nicht
+  erreichbar – Netzwerk blockiert): der exakte Name der
+  Schleifen-Element-Variable (vermutlich „Wiederholungselement"), ob
+  bestimmte Suchbegriffe die passende Aktion sofort ganz oben anzeigen,
+  exakte Feldbezeichnungen bei „Menü auswählen". Diese Stellen bitte
+  beim Nachbauen mit Vorsicht behandeln und im Zweifel im
+  Aktionen-Suchfeld mit einem anderen Stichwort erneut suchen.

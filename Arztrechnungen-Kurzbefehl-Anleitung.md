@@ -9,6 +9,16 @@ Kurzbefehle ist dafür das richtige Tool. Ein paar Dinge kann die App nicht
 direkt (z. B. live in eine Numbers-Datei schreiben) – dafür nutzen wir eine
 CSV-Datei als Zwischenschritt, die Numbers klaglos öffnet.
 
+**Wichtig für den Scan-Ablauf:** Den gewünschten "Rechnung fertig"-Button
+musst du nicht selbst bauen – er existiert bereits in der nativen
+Scanner-Oberfläche: Nach dem Fotografieren der Seiten einer Rechnung tippst
+du dort auf **"Sichern"**. Genau das erzeugt automatisch die PDF für diese
+Rechnung. Der Kurzbefehl unten ist so gebaut, dass der Scanner danach
+**sofort wieder automatisch aufgeht** – du scannst also alle Rechnungen am
+Stück durch, ohne dass zwischendurch Fragen zu Arzt/Betrag/etc. den Fluss
+unterbrechen. Die Beschriftung (Arzt, Betrag, Datum, Kostenträger) erledigst
+du erst danach, in Ruhe, für alle Rechnungen nacheinander.
+
 ---
 
 ## Vorbereitung (einmalig)
@@ -40,14 +50,27 @@ Neuer Kurzbefehl → Name z. B. **"Arztrechnungen scannen"**.
 - Aktion **"Liste"** → leer lassen → Variable setzen als `PDF-Liste`
 - Aktion **"Liste"** → leer lassen → Variable setzen als `CSV-Zeilen`
 
-### 3. Schleife: "Wiederholen" mit `Anzahl`
-Innerhalb der Schleife (`Wiederholungsindex` steht automatisch zur
-Verfügung):
+### 3. Scan-Phase – Schleife "Wiederholen" mit `Anzahl`
+Diese Schleife enthält bewusst **nur den Scan-Schritt**, damit du ohne
+jede Unterbrechung durchscannen kannst:
 
-**a) Dokument scannen**
 - Aktion **"Dokumente scannen"** (Scan Document)
-  - Damit fotografierst du alle Seiten *einer* Rechnung (Mehrseiten
-    werden automatisch zu einer PDF zusammengefasst).
+  - Fotografiere alle Seiten *einer* Rechnung, dann auf **"Sichern"**
+    tippen (Mehrseiten werden automatisch zu einer PDF zusammengefasst –
+    das ist dein "Rechnung fertig"-Button).
+- Aktion **"Zu Variable hinzufügen"** → gescanntes Dokument → zu
+  `PDF-Liste` hinzufügen
+
+*(Schleifenende)* → der Scanner öffnet sich beim nächsten Durchlauf
+automatisch von selbst wieder, bis `Anzahl` erreicht ist.
+
+### 4. Beschriften-Phase – "Wiederholen mit jedem Element" über `PDF-Liste`
+Jetzt, wo alle Rechnungen gescannt sind, gehst du sie in Ruhe durch
+(Element-Variable z. B. `Aktuelles-PDF`, Index `Wiederholungsindex`):
+
+**a) Kurz zur Orientierung**
+- Aktion **"Vorschau von Dokument"** (Quick Look) auf `Aktuelles-PDF` –
+  zeigt dir kurz, welche Rechnung das ist, bevor du sie beschriftest.
 
 **b) Angaben zur Rechnung abfragen**
 - **"Eingabe abfragen"** → Text → „Name des Arztes / der Praxis“ →
@@ -65,7 +88,7 @@ Verfügung):
 - Aktion **"Text"** → Inhalt:
   `Datum-formatiert_Arzt.pdf` (z. B. `2026-08-30_Dr-Müller.pdf`)
   → Variable `Dateiname`
-- Aktion **"Datei umbenennen"** auf das gescannte Dokument, neuer Name =
+- Aktion **"Datei umbenennen"** auf `Aktuelles-PDF`, neuer Name =
   `Dateiname`
 
 **d) Datei ablegen**
@@ -73,8 +96,6 @@ Verfügung):
   - Ziel: der vorbereitete Ordner `Arztrechnungen`
   - „Bei Namenskonflikt“: *Neuen Namen erstellen* (damit nichts
     überschrieben wird)
-- Aktion **"Zu Variable hinzufügen"** → gescanntes Dokument → zu
-  `PDF-Liste` hinzufügen (für die spätere Sammel-Freigabe)
 
 **e) CSV-Zeile bauen**
 - Aktion **"Text"** → Inhalt:
@@ -84,8 +105,8 @@ Verfügung):
 
 *(Schleifenende)*
 
-### 4. CSV-Datei aktualisieren
-Nach der Schleife:
+### 5. CSV-Datei aktualisieren
+Nach dieser zweiten Schleife:
 
 - Aktion **"Datei abrufen"** → Pfad direkt auf
   `Arztrechnungen/Arztrechnungen.csv` zeigen lassen (Dokumentenauswahl
@@ -98,7 +119,7 @@ Nach der Schleife:
 - Aktion **"Datei sichern"** → Inhalt `Neuer-CSV-Inhalt`, Ziel wieder
   `Arztrechnungen/Arztrechnungen.csv`, „Bei Namenskonflikt“: *Überschreiben*
 
-### 5. Zum Schluss: Teilen anbieten
+### 6. Zum Schluss: Teilen anbieten
 - Aktion **"Menü auswählen"**: „PDFs jetzt teilen?“ → Ja/Nein
   - Bei „Ja“: Aktion **"Für Freigabe"** (Share Sheet) mit `PDF-Liste`
     → dort kannst du AirDrop, Mail, WhatsApp, „In Dateien sichern“ etc.
@@ -123,9 +144,13 @@ Nach der Schleife:
   bestehende **.numbers**-Datei schreiben (das geht nur über AppleScript
   am Mac). Die CSV-Route oben ist der zuverlässige Workaround.
 - „Dokumente scannen“ fasst mehrere fotografierte **Seiten** automatisch
-  zu einer PDF zusammen – die Schleife oben ist dafür da, mehrere
-  **getrennte** Rechnungen (= mehrere PDFs) in einem Durchlauf zu
-  erfassen.
+  zu einer PDF zusammen, sobald du auf „Sichern“ tippst – das ist dein
+  „Rechnung fertig“-Button, du musst ihn nicht selbst bauen.
+- Die Trennung von Scan-Phase (Schritt 3) und Beschriften-Phase (Schritt 4)
+  ist bewusst so gewählt, dass du beim Scannen selbst nicht durch Fragen
+  unterbrochen wirst. Falls du doch spontan direkt nach dem Scannen
+  benennen möchtest, kannst du Schritt 4 einfach in Schritt 3 hinein
+  verschieben – dann fragt der Kurzbefehl nach jeder Rechnung sofort nach.
 - Trage am Rechnungsbetrag ruhig auch den Aufteilungsschlüssel ein
   (Beihilfe-Satz/PKV-Satz), falls du später nachvollziehen willst, was
-  wo eingereicht wurde – dafür ggf. Menü/Eingabe in Schritt 3b erweitern.
+  wo eingereicht wurde – dafür ggf. Menü/Eingabe in Schritt 4b erweitern.

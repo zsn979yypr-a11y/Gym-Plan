@@ -113,11 +113,6 @@
     font-size:.95rem;
     margin:0 0 10px;
   }
-  .last-time{
-    color:var(--text-dim);
-    font-size:.85rem;
-    margin:0 0 10px;
-  }
 
   .set-row{
     display:flex;align-items:center;gap:8px;
@@ -434,10 +429,11 @@ function addSetRow(setsContainer, lastSets, rowIndex){
   weightInput.inputMode = "decimal";
   weightInput.step = "0.5";
   weightInput.min = "0";
-  weightInput.placeholder = "kg";
   weightInput.dataset.role = "weight";
   if (lastSets && lastSets[rowIndex] && lastSets[rowIndex].weight !== undefined && lastSets[rowIndex].weight !== ""){
-    weightInput.value = lastSets[rowIndex].weight;
+    weightInput.placeholder = `${lastSets[rowIndex].weight} kg`;
+  } else {
+    weightInput.placeholder = "kg";
   }
   weightInput.addEventListener("focus", () => weightInput.select());
   row.appendChild(weightInput);
@@ -513,13 +509,6 @@ function openDay(daySlug){
     target.className = "target";
     target.textContent = `Ziel: ${ex.sets} × ${repsLabel(ex)} Wdh`;
     box.appendChild(target);
-
-    if (lastSets && lastSets.length){
-      const lt = document.createElement("p");
-      lt.className = "last-time";
-      lt.textContent = "Letztes Mal: " + lastSets.map(s => `${s.weight}kg×${s.reps}`).join(", ");
-      box.appendChild(lt);
-    }
 
     const setsContainer = document.createElement("div");
     setsContainer.className = "sets-container";
